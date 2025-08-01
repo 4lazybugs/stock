@@ -1,0 +1,7 @@
+#캐시 파일은 무시
+LSTM_custom/__pycache__/
+
+# checkpoint 파일은 무시
+LSTM_custom/checkpoint_saved/weight/*.h5
+LSTM_custom/checkpoint_saved/*.csv
+LSTM_custom/checkpoint_saved/*.png
