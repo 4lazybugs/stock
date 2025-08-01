@@ -2,6 +2,7 @@
 LSTM_custom/__pycache__/
 
 # checkpoint 파일은 무시
-LSTM_custom/checkpoint_saved/weight/*.h5
-LSTM_custom/checkpoint_saved/*.csv
-LSTM_custom/checkpoint_saved/*.png
+LSTM_custom/checkpoint_saved/*
+!LSTM_custom/checkpoint_saved/.gitkeep
+github_ssh_key
+github_ssh_key.pub
