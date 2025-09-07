@@ -4,5 +4,7 @@ LSTM_custom/__pycache__/
 # checkpoint 파일은 무시
 LSTM_custom/checkpoint_saved/*
 !LSTM_custom/checkpoint_saved/.gitkeep
+
+# ssh key 또한 보안상 이유로 무시
 github_ssh_key
 github_ssh_key.pub
