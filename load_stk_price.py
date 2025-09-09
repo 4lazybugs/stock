@@ -39,7 +39,7 @@ for code in codes:
     ws.append(["date","Close","Open","High","Low","Volume"])
     
     print(f"크롤링 시작: {code}")
-    MAX_PAGES = 100
+    MAX_PAGES = 20
     page = 1
     
     for page in range(1, MAX_PAGES + 1):

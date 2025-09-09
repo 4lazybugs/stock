@@ -7,6 +7,7 @@ BASE = "https://opendart.fss.or.kr/api"
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
 def _to_number(x: Optional[str]) -> Optional[float]:
+    """문자열을 숫자로 변환"""
     if x is None:
         return None
     s = str(x).strip()
@@ -35,38 +36,18 @@ def get_corp_code(api_key: str, stock_code: str) -> str:
             return (el.findtext("corp_code") or "").strip()
     raise ValueError(f"종목코드 {stock_code} 의 corp_code를 찾지 못함")
 
-def get_stock_price(stock_code: str, year: int) -> Optional[float]:
-    """네이버 금융에서 현재 주가 가져오기"""
-    try:
-        url = f"https://finance.naver.com/item/main.naver?code={stock_code}"
-        response = requests.get(url, headers=HEADERS, timeout=10)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # 현재 주가 찾기
-        price_element = soup.find('p', class_='no_today')
-        if price_element:
-            price_text = price_element.find('span', class_='blind').text
-            return float(price_text.replace(',', ''))
-        
-        return None
-    except Exception as e:
-        print(f"  {year}년 주가 데이터 가져오기 실패: {e}")
-        return None
-
-def get_financial_data(api_key: str, corp_code: str, year: int) -> dict:
-    """JSON API로 재무 데이터 가져오기 (EPS, PER, PBR, ROE, ROA)"""
-    result = {"EPS": None, "PER": None, "PBR": None, "ROE": None, "ROA": None}
+def get_financial_data(api_key: str, corp_code: str, year: int, quarter: str = "11014") -> dict:
+    """재무 데이터 가져오기 (EPS, ROE, ROA)"""
+    result = {"EPS": None, "ROE": None, "ROA": None}
     
     for fs_div in ["CFS", "OFS"]:
         try:
             url = (f"{BASE}/fnlttSinglAcntAll.json?"
-                   f"crtfc_key={api_key}&corp_code={corp_code}&bsns_year={year}&reprt_code=11011&fs_div={fs_div}")
+                   f"crtfc_key={api_key}&corp_code={corp_code}&bsns_year={year}&reprt_code={quarter}&fs_div={fs_div}")
             r = requests.get(url, headers=HEADERS, timeout=30)
             data = r.json()
         except Exception as e:
-            print(f"  {year}년 {fs_div} 데이터 요청 실패: {e}")
+            print(f"  {year}년 {quarter}분기 {fs_div} 데이터 요청 실패: {e}")
             continue
         
         if data.get("status") != "000" or not data.get("list"):
@@ -82,9 +63,6 @@ def get_financial_data(api_key: str, corp_code: str, year: int) -> dict:
             val = _to_number(row.get("thstrm_amount"))
             if val is not None and result["EPS"] is None:
                 result["EPS"] = val
-        
-        # PER (주가수익비율) - 직접 계산 불가, 주가 데이터 필요
-        # PBR (주가순자산비율) - 직접 계산 불가, 주가 데이터 필요
         
         # ROE (자기자본이익률)
         roe_mask = df["account_nm"].str.contains(r"자기자본\s*이익률|ROE", case=False, regex=True)
@@ -102,9 +80,8 @@ def get_financial_data(api_key: str, corp_code: str, year: int) -> dict:
             if val is not None and result["ROA"] is None:
                 result["ROA"] = val
         
-        # ROE, ROA가 없으면 계산해보기
+        # ROE, ROA가 없으면 계산
         if result["ROE"] is None:
-            # 당기순이익 / 자본총계
             net_income_mask = df["account_nm"].str.contains(r"당기순이익\(손실\)", case=False, regex=True)
             equity_mask = df["account_nm"].str.contains(r"자본총계", case=False, regex=True)
             
@@ -115,7 +92,6 @@ def get_financial_data(api_key: str, corp_code: str, year: int) -> dict:
                     result["ROE"] = (net_income / equity) * 100
         
         if result["ROA"] is None:
-            # 당기순이익 / 자산총계
             net_income_mask = df["account_nm"].str.contains(r"당기순이익\(손실\)", case=False, regex=True)
             total_assets_mask = df["account_nm"].str.contains(r"자산총계", case=False, regex=True)
             
@@ -127,8 +103,40 @@ def get_financial_data(api_key: str, corp_code: str, year: int) -> dict:
     
     return result
 
+def get_quarterly_financial_data(api_key: str, stock_code: str, year: int) -> dict:
+    """분기별 누적 재무 데이터 가져오기"""
+    quarters = {
+        "11011": "1분기",
+        "11012": "2분기", 
+        "11013": "3분기",
+        "11014": "4분기"
+    }
+    
+    quarterly_data = {}
+    
+    for quarter_code, quarter_name in quarters.items():
+        try:
+            corp_code = get_corp_code(api_key, stock_code)
+            financial_data = get_financial_data(api_key, corp_code, year, quarter_code)
+            
+            quarterly_data[quarter_name] = {
+                "EPS": financial_data.get("EPS"),
+                "ROE": financial_data.get("ROE"),
+                "ROA": financial_data.get("ROA")
+            }
+            
+        except Exception as e:
+            print(f"  {year}년 {quarter_name} 데이터 수집 실패: {e}")
+            quarterly_data[quarter_name] = {
+                "EPS": None,
+                "ROE": None, 
+                "ROA": None
+            }
+    
+    return quarterly_data
+
 def get_financial_series(api_key: str, stock_code: str, start_year=2015, end_year=2025) -> pd.DataFrame:
-    """연도별 재무 데이터 수집 (EPS, PER, PBR, ROE, ROA)"""
+    """연도별 재무 데이터 수집"""
     corp_code = get_corp_code(api_key, stock_code)
     print(f"corp_code: {corp_code}")
     
@@ -136,36 +144,64 @@ def get_financial_series(api_key: str, stock_code: str, start_year=2015, end_yea
     for year in range(start_year, end_year + 1):
         print(f"수집 중: {year}년")
         
-        # 2015년 이후는 JSON API 사용
         if year >= 2015:
             financial_data = get_financial_data(api_key, corp_code, year)
             financial_data["year"] = year
-            
-            # 주가 데이터 가져와서 PER, PBR 계산
-            stock_price = get_stock_price(stock_code, year)
-            if stock_price and financial_data["EPS"]:
-                # PER = 주가 / EPS
-                financial_data["PER"] = stock_price / financial_data["EPS"]
-                
-                # PBR 계산을 위해 BPS (주당순자산) 필요
-                # BPS = 자본총계 / 발행주식수 (발행주식수는 별도 API 필요)
-                # 일단 PER만 계산하고 PBR은 None으로 두기
-                financial_data["PBR"] = None
         else:
             financial_data = {
                 "year": year,
-                "EPS": None, "PER": None, "PBR": None, "ROE": None, "ROA": None
+                "EPS": None, "ROE": None, "ROA": None
             }
         
         rows.append(financial_data)
     
     return pd.DataFrame(rows).set_index("year").sort_index()
 
+def get_quarterly_financial_series(api_key: str, stock_code: str, start_year=2015, end_year=2025) -> pd.DataFrame:
+    """분기별 누적 재무 데이터 수집"""
+    print(f"분기별 누적 재무 데이터 수집 시작: {stock_code}")
+    
+    all_data = []
+    
+    for year in range(start_year, end_year + 1):
+        print(f"\n{year}년 분기별 데이터 수집 중...")
+        
+        quarterly_data = get_quarterly_financial_data(api_key, stock_code, year)
+        
+        for quarter_name, data in quarterly_data.items():
+            row = {
+                "year": year,
+                "quarter": quarter_name,
+                "EPS": data.get("EPS"),
+                "ROE": data.get("ROE"),
+                "ROA": data.get("ROA")
+            }
+            all_data.append(row)
+    
+    df = pd.DataFrame(all_data)
+    df["year_quarter"] = df["year"].astype(str) + "_" + df["quarter"]
+    df = df.set_index("year_quarter")
+    
+    return df
+
 if __name__ == "__main__":
     STOCK = "005930"  # 삼성전자
-    df = get_financial_series(API_KEY, STOCK, 2015, 2023)
-    print(df)
     
-    out = f"Financial_{STOCK}_2015_2023.csv"
-    df.to_csv(out, encoding="utf-8-sig")
-    print(f"저장 완료: {out}")
+    print("=== 연간 재무 데이터 ===")
+    annual_df = get_financial_series(API_KEY, STOCK, 2023, 2023)
+    print(annual_df)
+    
+    print("\n=== 분기별 누적 재무 데이터 ===")
+    quarterly_df = get_quarterly_financial_series(API_KEY, STOCK, 2023, 2023)
+    print(quarterly_df)
+    
+    # 파일 저장
+    annual_out = f"Financial_Annual_{STOCK}_2023.csv"
+    quarterly_out = f"Financial_Quarterly_{STOCK}_2023.csv"
+    
+    annual_df.to_csv(annual_out, encoding="utf-8-sig")
+    quarterly_df.to_csv(quarterly_out, encoding="utf-8-sig")
+    
+    print(f"\n저장 완료:")
+    print(f"- 연간 데이터: {annual_out}")
+    print(f"- 분기별 데이터: {quarterly_out}")
