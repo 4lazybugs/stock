@@ -65,41 +65,48 @@ def process_file(download_dir: str, start_date: str, end_date: str):
     if not files:
         raise FileNotFoundError(f"{ship_type} 파일을 찾을 수 없습니다.")
     fpath = files[0]
+    
+    df = pd.read_excel(fpath, header=1).set_index("DATE")
+    df = df.drop(columns=['번호'])
+
+    save_dir = "./economic_data"
+    os.makedirs(save_dir, exist_ok=True)
 
     start_date = start_date.replace("-", "")
     end_date = end_date.replace("-", "")
-    save_name = f"{ship_type}_ship_price_{release_type['name']}_{start_date}_{end_date}.xlsx"
-
-    df = pd.read_excel(fpath, header=1).set_index("DATE")
-    df.to_excel(save_name, index=True, header=True)
+    
+    fname = f"{release_type['name']}_{ship_type}_ship_price_{start_date}_{end_date}"
+    save_path = os.path.join(save_dir, f"{fname}.xlsx")
+    
+    df.to_excel(save_path, index=True, header=True)
 
     os.remove(fpath)
 
-    print(f"{release_type['name']} 저장 완료 : {save_name}")
+    print(f"{release_type['name']} 저장 완료 : {save_path}")
 
 
 if __name__ == "__main__":    
-    old_ship = {'code' :'0402000000', 'name' :"USED"} # 중고선가
-    new_ship = {'code' : '0401000000', 'name' : "NEW"} # 신고선가
+    old_ship = {'code' :'0402000000', 'name' : "used"} # 중고선가
+    new_ship = {'code' : '0401000000', 'name' : "new"} # 신고선가
     # 중고선가 / 신고선가 선택
     release_type = new_ship
 
-    bulk_ship = "BULKER"
-    tank_ship = "TANKER"
+    bulk_ship = "bulker"
+    tank_ship = "tanker"
     # BULKER(곡물, 석탄, 철광) / TANKER(원유, 석유제품, 액체 화물) 선택
     ship_type = tank_ship
 
-    url_base = "https://www.kobc.or.kr/ebz/shippinginfo/sts/gridList.do?mId="
-    url = os.path.join(url_base, release_type['code'])
-    down_dir = r"C:\Users\LG\OneDrive\Desktop\창고\Stock Price Prediction\src"
+    start_date = date(2016, 8, 4).strftime("%Y-%m-%d")
+    end_date = date(2024, 9, 14).strftime("%Y-%m-%d")
 
-    start = date(2025, 8, 4).strftime("%Y-%m-%d")
-    end = date(2025, 9, 14).strftime("%Y-%m-%d")
+    url_base = "https://www.kobc.or.kr/ebz/shippinginfo/sts/gridList.do?mId="
+    url = url_base + release_type['code']
+    down_dir = r"C:\Users\LG\OneDrive\Desktop\창고\Stock Price Prediction\src"
 
     driver = setup_driver(down_dir, headless=True)
     try:
-        download_file(driver, url, start, end)
+        download_file(driver, url, start_date, end_date)
     finally:
         driver.quit()
 
-    process_file(down_dir, start, end)
+    process_file(down_dir, start_date, end_date)
