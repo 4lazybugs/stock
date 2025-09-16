@@ -68,6 +68,7 @@ def process_file(download_dir: str, start_date: str, end_date: str, ship_type: s
     fpath = files[0]
     
     df = pd.read_excel(fpath, header=1).set_index("DATE")
+    df.index.name = "date"
     df = df.drop(columns=['번호'])
 
     save_dir = "./economic_data"
@@ -97,8 +98,8 @@ if __name__ == "__main__":
     # BULKER(곡물, 석탄, 철광) / TANKER(원유, 석유제품, 액체 화물) 선택
     ship_type = tank_ship
 
-    start_date = date(2016, 8, 4).strftime("%Y-%m-%d")
-    end_date = date(2024, 9, 14).strftime("%Y-%m-%d")
+    start_date = date(2025, 6, 4).strftime("%Y-%m-%d")
+    end_date = date(2025, 9, 14).strftime("%Y-%m-%d")
 
     url_base = "https://www.kobc.or.kr/ebz/shippinginfo/sts/gridList.do?mId="
     url = url_base + release_type['code']

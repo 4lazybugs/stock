@@ -1,8 +1,9 @@
 import requests
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
-from datetime import date
 import time
+from datetime import date, datetime
+import os
 
 # headers 설정
 headers = {
@@ -39,7 +40,7 @@ for code in codes:
     ws.append(["date","Close","Open","High","Low","Volume"])
     
     print(f"크롤링 시작: {code}")
-    MAX_PAGES = 20
+    MAX_PAGES = 5
     page = 1
     
     for page in range(1, MAX_PAGES + 1):
@@ -61,14 +62,18 @@ for code in codes:
             tds = [td.get_text(strip=True) for td in row.find_all("td")]
             if len(tds) == 7 and tds[0]:   # 실제 데이터 행만
                 trade_date, close, _, open_, high, low, volume = tds # 전일비는 무시
+
+                date = datetime.strptime(trade_date, "%Y.%m.%d")
                 ws.append([
-                    trade_date,
+                    date,
                     int(close.replace(",","")),
                     int(open_.replace(",","")),
                     int(high.replace(",","")),
                     int(low.replace(",","")),
                     int(volume.replace(",",""))
                 ])
+
+                ws.cell(ws.max_row, 1).number_format = "yyyy-mm-dd"
                 rows_with_data += 1
         
         # 데이터가 없으면 마지막 페이지
@@ -81,4 +86,5 @@ for code in codes:
     
     print(f"크롤링 완료: {code} (총 {page-1}페이지)")
 
-wb.save('ship_stock_prices.xlsx')
+os.makedirs('./stk_data', exist_ok=True)
+wb.save('./stk_data/ship_stock_prices.xlsx')

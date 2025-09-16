@@ -47,8 +47,8 @@ if __name__ == "__main__":
 
     static_code = '731Y001' # 환율 통계
     period = 'D' 
-    start_date = "20200304"
-    end_date = "20230402"
+    start_date = "20250704"
+    end_date = "20251102"
     table_code = "0000001" # 원 달러 환율
     table_name = "usd_krw"
 
