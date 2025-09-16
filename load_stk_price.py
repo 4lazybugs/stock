@@ -40,10 +40,10 @@ for code in codes:
     ws.append(["date","Close","Open","High","Low","Volume"])
     
     print(f"크롤링 시작: {code}")
+    START_PAGE = 2
     MAX_PAGES = 5
-    page = 1
     
-    for page in range(1, MAX_PAGES + 1):
+    for page in range(START_PAGE, MAX_PAGES + 1):
         # ✅ 일별시세 페이지 (table.type2가 여기에 있음)
         url = f"https://finance.naver.com/item/sise_day.naver?code={code}&page={page}"
         print(f"  페이지 {page} 크롤링 중...")
