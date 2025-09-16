@@ -59,9 +59,10 @@ def download_file(driver, url: str, start_date: str, end_date: str, \
     time.sleep(wait_sec)
 
 
-def process_file(download_dir: str, start_date: str, end_date: str):
-    """다운로드된 TANKER 파일을 xlsx로 변환 후 원본 삭제"""
-    files = glob.glob(os.path.join(download_dir, f"{ship_type}*"))
+def process_file(download_dir: str, start_date: str, end_date: str, ship_type: str, release_type: dict):
+    """다운로드된 파일을 xlsx로 변환 후 원본 삭제"""
+    download_dir = glob.escape(download_dir)
+    files = glob.glob(os.path.join(download_dir, f"{ship_type.upper()}*"))
     if not files:
         raise FileNotFoundError(f"{ship_type} 파일을 찾을 수 없습니다.")
     fpath = files[0]
@@ -101,12 +102,12 @@ if __name__ == "__main__":
 
     url_base = "https://www.kobc.or.kr/ebz/shippinginfo/sts/gridList.do?mId="
     url = url_base + release_type['code']
-    down_dir = r"C:\Users\LG\OneDrive\Desktop\창고\Stock Price Prediction\src"
+    down_dir = "/home/hlabserver/[code]재활과제_server/from_github/"
 
     driver = setup_driver(down_dir, headless=True)
     try:
-        download_file(driver, url, start_date, end_date)
+        download_file(driver, url, start_date, end_date, ship_type)
     finally:
         driver.quit()
 
-    process_file(down_dir, start_date, end_date)
+    process_file(down_dir, start_date, end_date, ship_type, release_type)
